@@ -1,743 +1,1370 @@
-# 📦 Dokumentasi Sistem Manajemen Gudang
+ksfkfj# 📘 Dokumentasi Implementasi Teknis - Sistem Manajemen Gudang
 
-## 🎯 Overview Aplikasi
+## 🎯 Executive Summary
 
-**Sistem Gudang** adalah aplikasi manajemen inventori dan gudang berbasis web yang dibangun menggunakan **Laravel 10**. Aplikasi ini dirancang untuk membantu perusahaan dalam mengelola stok produk, gudang, supplier, kategori, dan pelanggan secara efisien.
+Sistem Manajemen Gudang adalah aplikasi berbasis web yang dibangun menggunakan **Laravel 10** dengan arsitektur MVC (Model-View-Controller). Aplikasi ini mengimplementasikan full CRUD operations untuk manajemen inventori, gudang, supplier, kategori produk, dan customer database.
 
-### Fitur Utama
-
-- ✅ **Manajemen Produk** - CRUD produk dengan SKU, barcode, harga, stok, dan tracking batch/expiry
-- ✅ **Manajemen Kategori** - Organisasi produk berdasarkan kategori
-- ✅ **Manajemen Supplier** - Data supplier/vendor dengan informasi kontak lengkap
-- ✅ **Manajemen Gudang** - Multiple warehouse management dengan kapasitas dan lokasi
-- ✅ **Manajemen Customer** - Database pelanggan untuk order management
-- ✅ **User Authentication** - Login system dengan role-based access
-- ✅ **Dashboard** - Overview statistik dan data penting
-- ✅ **Search & Filter** - Pencarian dan filter data di semua modul
-- ✅ **Pagination** - Navigasi data yang efisien
+**Tech Stack:**
+- Backend: Laravel 10 (PHP 8.1+)
+- Frontend: Blade Templates + Vanilla CSS/JS
+- Database: MySQL/MariaDB
+- Authentication: Laravel default
+- Asset Bundling: Vite
 
 ---
 
-## 🛠 Teknologi Stack
+## 📊 Database Design & Implementation
 
-### Backend
-- **Framework**: Laravel 10.x
-- **PHP Version**: 8.1+
-- **Database**: MySQL/MariaDB
-- **Authentication**: Laravel Breeze/Sanctum
+### Database Schema Overview
 
-### Frontend
-- **Template Engine**: Blade
-- **CSS**: Vanilla CSS dengan custom design system
-- **JavaScript**: Vanilla JS
-- **Icons**: Font Awesome 6
+Database dirancang dengan normalisasi proper untuk menghindari duplikasi data dan memastikan integritas referensial.
 
-### Tools & Dependencies
-- **Composer** - PHP dependency manager
-- **NPM/Vite** - Asset bundling
-- **Git** - Version control
+### Detailed Table Structures
+
+#### 1. `users` Table
+
+**Purpose:** Menyimpan data pengguna sistem untuk autentikasi dan otorisasi.
+
+```sql
+CREATE TABLE users (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    email_verified_at TIMESTAMP NULL,
+    password VARCHAR(255) NOT NULL,
+    remember_token VARCHAR(100) NULL,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    INDEX idx_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Migration File:** `2014_10_12_000000_create_users_table.php`
+
+**Model:** `App\Models\User`
+
+**Relationships:**
+- None (base authentication)
 
 ---
 
-## 📊 Struktur Database
+#### 2. `categories` Table
 
-### Entity Relationship Diagram
+**Purpose:** Klasifikasi produk berdasarkan kategori untuk memudahkan organisasi dan pencarian.
 
-```mermaid
-erDiagram
-    USERS ||--o{ SESSIONS : "has"
-    CATEGORIES ||--o{ PRODUCTS : "has many"
-    SUPPLIERS ||--o{ PRODUCTS : "supplies"
-    PRODUCTS }o--|| CATEGORIES : "belongs to"
-    PRODUCTS }o--|| SUPPLIERS : "belongs to"
-    WAREHOUSES ||--o{ WAREHOUSE_STOCK : "stores (future)"
-    PRODUCTS ||--o{ WAREHOUSE_STOCK : "in (future)"
-    CUSTOMERS ||--o{ ORDERS : "places (future)"
-    
-    USERS {
-        bigint id PK
-        string name
-        string email UK
-        timestamp email_verified_at
-        string password
-        string remember_token
-        timestamps created_at_updated_at
-    }
-    
-    CATEGORIES {
-        bigint id PK
-        string name
-        text description
-        enum status
-        timestamps created_at_updated_at
-    }
-    
-    SUPPLIERS {
-        bigint id PK
-        string name
-        string contact_person
-        string email
-        string phone
-        text address
-        enum status
-        timestamps created_at_updated_at
-    }
-    
-    CUSTOMERS {
-        bigint id PK
-        string name
-        string email
-        string phone
-        text address
-        enum status
-        timestamps created_at_updated_at
-    }
-    
-    WAREHOUSES {
-        bigint id PK
-        string name
-        string code UK
-        string location
-        text address
-        string phone
-        string manager_name
-        decimal capacity
-        enum status
-        timestamps created_at_updated_at
-    }
-    
-    PRODUCTS {
-        bigint id PK
-        string name
-        string sku UK
-        text description
-        bigint category_id FK
-        bigint supplier_id FK
-        decimal price
-        decimal cost
-        int min_stock
-        int max_stock
-        int reorder_point
-        string unit
-        boolean track_batch
-        boolean track_expiry
-        string image
-        string barcode
-        enum status
-        timestamps created_at_updated_at
-    }
+```sql
+CREATE TABLE categories (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    INDEX idx_status (status),
+    INDEX idx_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-### Tabel-Tabel Database
+**Migration File:** `2025_11_28_000001_create_categories_table.php`
 
-#### 1. **users**
-Menyimpan data pengguna sistem dengan autentikasi.
+**Model:** `App\Models\Category`
 
-| Kolom | Tipe | Deskripsi |
-|-------|------|-----------|
-| id | BIGINT | Primary key |
-| name | VARCHAR(255) | Nama user |
-| email | VARCHAR(255) | Email (unique) |
-| password | VARCHAR(255) | Password (hashed) |
-| created_at | TIMESTAMP | Waktu dibuat |
-
-#### 2. **categories**
-Kategori untuk klasifikasi produk.
-
-| Kolom | Tipe | Deskripsi |
-|-------|------|-----------|
-| id | BIGINT | Primary key |
-| name | VARCHAR(255) | Nama kategori |
-| description | TEXT | Deskripsi kategori |
-| status | ENUM | active/inactive |
-| created_at | TIMESTAMP | Waktu dibuat |
-
-#### 3. **suppliers**
-Data supplier/vendor yang memasok produk.
-
-| Kolom | Tipe | Deskripsi |
-|-------|------|-----------|
-| id | BIGINT | Primary key |
-| name | VARCHAR(255) | Nama supplier |
-| contact_person | VARCHAR(255) | PIC supplier |
-| email | VARCHAR(255) | Email kontak |
-| phone | VARCHAR(20) | Nomor telepon |
-| address | TEXT | Alamat lengkap |
-| status | ENUM | active/inactive |
-| created_at | TIMESTAMP | Waktu dibuat |
-
-#### 4. **customers**
-Database pelanggan untuk transaksi.
-
-| Kolom | Tipe | Deskripsi |
-|-------|------|-----------|
-| id | BIGINT | Primary key |
-| name | VARCHAR(255) | Nama customer |
-| email | VARCHAR(255) | Email customer |
-| phone | VARCHAR(20) | Nomor telepon |
-| address | TEXT | Alamat lengkap |
-| status | ENUM | active/inactive |
-| created_at | TIMESTAMP | Waktu dibuat |
-
-#### 5. **warehouses**
-Data gudang penyimpanan produk.
-
-| Kolom | Tipe | Deskripsi |
-|-------|------|-----------|
-| id | BIGINT | Primary key |
-| name | VARCHAR(255) | Nama gudang |
-| code | VARCHAR(255) | Kode gudang (unique) |
-| location | VARCHAR(255) | Lokasi/kota |
-| address | TEXT | Alamat lengkap |
-| phone | VARCHAR(20) | Telepon gudang |
-| manager_name | VARCHAR(255) | Nama manager |
-| capacity | DECIMAL(10,2) | Kapasitas (m²) |
-| status | ENUM | active/inactive |
-| created_at | TIMESTAMP | Waktu dibuat |
-
-#### 6. **products**
-Master data produk dengan informasi lengkap.
-
-| Kolom | Tipe | Deskripsi |
-|-------|------|-----------|
-| id | BIGINT | Primary key |
-| name | VARCHAR(255) | Nama produk |
-| sku | VARCHAR(255) | Stock Keeping Unit (unique) |
-| description | TEXT | Deskripsi produk |
-| category_id | BIGINT | Foreign key ke categories |
-| supplier_id | BIGINT | Foreign key ke suppliers |
-| price | DECIMAL(15,2) | Harga jual |
-| cost | DECIMAL(15,2) | Harga beli/modal |
-| min_stock | INT | Stok minimum |
-| max_stock | INT | Stok maksimum |
-| reorder_point | INT | Titik reorder |
-| unit | VARCHAR(50) | Satuan (pcs, box, dll) |
-| track_batch | BOOLEAN | Track nomor batch |
-| track_expiry | BOOLEAN | Track tanggal expired |
-| image | VARCHAR(255) | Path gambar produk |
-| barcode | VARCHAR(255) | Nomor barcode |
-| status | ENUM | active/inactive |
-| created_at | TIMESTAMP | Waktu dibuat |
-
-### Relationships
-
+```php
+class Category extends Model
+{
+    protected $fillable = ['name', 'description', 'status'];
+    
+    // Relationship: One category has many products
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
+}
 ```
-Categories (1) ----< (N) Products
-Suppliers (1) ----< (N) Products
-Warehouses (1) ----< (N) WarehouseStock (future)
-Products (1) ----< (N) WarehouseStock (future)
-Customers (1) ----< (N) Orders (future)
+
+**Business Logic:**
+- Soft status management (active/inactive)
+- Cascade consideration: Saat category dihapus, products yang terkait akan memiliki `category_id = NULL` (set null on delete)
+
+---
+
+#### 3. `suppliers` Table
+
+**Purpose:** Database vendor/supplier yang memasok produk ke perusahaan.
+
+```sql
+CREATE TABLE suppliers (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    contact_person VARCHAR(255) NULL,
+    email VARCHAR(255) NULL,
+    phone VARCHAR(20) NULL,
+    address TEXT NULL,
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    INDEX idx_status (status),
+    INDEX idx_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Migration File:** `2025_11_28_000002_create_suppliers_table.php`
+
+**Model:** `App\Models\Supplier`
+
+```php
+class Supplier extends Model
+{
+    protected $fillable = [
+        'name', 'contact_person', 'email', 
+        'phone', 'address', 'status'
+    ];
+    
+    // Relationship: One supplier has many products
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
+}
 ```
 
 ---
 
-## 🔄 Alur Sistem
+#### 4. `customers` Table
+
+**Purpose:** Database pelanggan untuk sistem order (future implementation).
+
+```sql
+CREATE TABLE customers (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NULL,
+    phone VARCHAR(20) NULL,
+    address TEXT NULL,
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    INDEX idx_status (status),
+    INDEX idx_name (name),
+    INDEX idx_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Migration File:** `2025_11_28_000003_create_customers_table.php`
+
+**Model:** `App\Models\Customer`
+
+```php
+class Customer extends Model
+{
+    protected $fillable = [
+        'name', 'email', 'phone', 'address', 'status'
+    ];
+    
+    // Future: Relationship to orders
+    // public function orders()
+    // {
+    //     return $this->hasMany(Order::class);
+    // }
+}
+```
+
+---
+
+#### 5. `warehouses` Table
+
+**Purpose:** Multi-warehouse management untuk tracking lokasi penyimpanan produk.
+
+```sql
+CREATE TABLE warehouses (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(255) NOT NULL UNIQUE,
+    location VARCHAR(255) NULL,
+    address TEXT NULL,
+    phone VARCHAR(20) NULL,
+    manager_name VARCHAR(255) NULL,
+    capacity DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT 'Capacity in m²',
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    UNIQUE KEY unique_code (code),
+    INDEX idx_status (status),
+    INDEX idx_location (location)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Migration File:** `2026_01_09_000000_create_warehouses_table.php`
+
+**Model:** `App\Models\Warehouse`
+
+```php
+class Warehouse extends Model
+{
+    protected $fillable = [
+        'name', 'code', 'location', 'address',
+        'phone', 'manager_name', 'capacity', 'status'
+    ];
+    
+    protected $casts = [
+        'capacity' => 'decimal:2'
+    ];
+    
+    // Future: Relationship to warehouse_stock pivot table
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'warehouse_stock')
+                    ->withPivot('quantity', 'location_code')
+                    ->withTimestamps();
+    }
+}
+```
+
+**Unique Constraint:**
+- `code`: Kode warehouse harus unique untuk identifikasi
+
+---
+
+#### 6. `products` Table
+
+**Purpose:** Master data produk dengan informasi lengkap untuk inventory management.
+
+```sql
+CREATE TABLE products (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    sku VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT NULL,
+    category_id BIGINT UNSIGNED NULL,
+    supplier_id BIGINT UNSIGNED NULL,
+    price DECIMAL(15,2) NOT NULL DEFAULT 0,
+    cost DECIMAL(15,2) NOT NULL DEFAULT 0,
+    min_stock INT NOT NULL DEFAULT 0,
+    max_stock INT NOT NULL DEFAULT 0,
+    reorder_point INT NOT NULL DEFAULT 0,
+    unit VARCHAR(50) NOT NULL DEFAULT 'pcs',
+    track_batch BOOLEAN NOT NULL DEFAULT 0,
+    track_expiry BOOLEAN NOT NULL DEFAULT 0,
+    image VARCHAR(255) NULL,
+    barcode VARCHAR(255) NULL,
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    UNIQUE KEY unique_sku (sku),
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
+    INDEX idx_status (status),
+    INDEX idx_category (category_id),
+    INDEX idx_supplier (supplier_id),
+    INDEX idx_sku (sku),
+    INDEX idx_barcode (barcode)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Migration File:** `2025_11_28_000004_create_products_table.php`
+
+**Model:** `App\Models\Product`
+
+```php
+class Product extends Model
+{
+    protected $fillable = [
+        'name', 'sku', 'description', 'category_id', 'supplier_id',
+        'price', 'cost', 'min_stock', 'max_stock', 'reorder_point',
+        'unit', 'track_batch', 'track_expiry', 'image', 'barcode', 'status'
+    ];
+    
+    protected $casts = [
+        'price' => 'decimal:2',
+        'cost' => 'decimal:2',
+        'min_stock' => 'integer',
+        'max_stock' => 'integer',
+        'reorder_point' => 'integer',
+        'track_batch' => 'boolean',
+        'track_expiry' => 'boolean'
+    ];
+    
+    // Relationship: Product belongs to one category
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+    
+    // Relationship: Product belongs to one supplier
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
+    }
+}
+```
+
+**Foreign Keys:**
+- `category_id`: References `categories.id` (ON DELETE SET NULL)
+- `supplier_id`: References `suppliers.id` (ON DELETE SET NULL)
+
+**Unique Constraints:**
+- `sku`: Stock Keeping Unit harus unique
+
+**Business Logic:**
+- `track_batch`: Flag untuk tracking nomor batch
+- `track_expiry`: Flag untuk tracking tanggal kadaluarsa
+- `min_stock`, `max_stock`, `reorder_point`: Untuk inventory control
+
+---
+
+### Database Relationships Diagram
+
+```
+┌─────────────┐
+│  Categories │
+│    (1)      │
+└──────┬──────┘
+       │
+       │ has many
+       │
+       ▼
+┌─────────────┐         ┌─────────────┐
+│  Products   │ ◄────── │  Suppliers  │
+│    (N)      │ belongs │    (1)      │
+└─────────────┘   to    └─────────────┘
+
+Legend:
+1 = One
+N = Many
+◄─ = belongs to
+─► = has many
+```
+
+**Relational Integrity Rules:**
+
+1. **Category → Product**: One-to-Many
+   - Satu category bisa memiliki banyak products
+   - Satu product hanya bisa belong to satu category
+   - ON DELETE SET NULL: Jika category dihapus, product.category_id = NULL
+
+2. **Supplier → Product**: One-to-Many
+   - Satu supplier bisa supply banyak products
+   - Satu product hanya dari satu supplier
+   - ON DELETE SET NULL: Jika supplier dihapus, product.supplier_id = NULL
+
+3. **Warehouse → Product** (Future): Many-to-Many via `warehouse_stock`
+   - Satu warehouse bisa menyimpan banyak products
+   - Satu product bisa ada di banyak warehouses
+   - Pivot table akan menyimpan quantity per warehouse
+
+---
+
+## 🏗 Application Architecture
+
+### MVC Pattern Implementation
+
+```
+┌───────────────────────────────────────────────────────┐
+│                    HTTP REQUEST                       │
+└────────────────────┬──────────────────────────────────┘
+                     │
+                     ▼
+┌───────────────────────────────────────────────────────┐
+│                   ROUTES (web.php)                    │
+│  Route::get('/products', [ProductController, 'index'])│
+└────────────────────┬──────────────────────────────────┘
+                     │
+                     ▼
+┌───────────────────────────────────────────────────────┐
+│                   MIDDLEWARE                          │
+│  - Authentication (auth)                              │
+│  - CSRF Protection                                    │
+└────────────────────┬──────────────────────────────────┘
+                     │
+                     ▼
+┌───────────────────────────────────────────────────────┐
+│                   CONTROLLER                          │
+│  ProductController@index()                            │
+│  - Handle request                                     │
+│  - Call Model                                         │
+│  - Return View                                        │
+└────────────────────┬──────────────────────────────────┘
+                     │
+                     ▼
+┌───────────────────────────────────────────────────────┐
+│                   MODEL (Eloquent)                    │
+│  Product::with(['category','supplier'])->get()        │
+│  - Database query                                     │
+│  - Data manipulation                                  │
+└────────────────────┬──────────────────────────────────┘
+                     │
+                     ▼
+┌───────────────────────────────────────────────────────┐
+│                   DATABASE (MySQL)                    │
+│  SELECT * FROM products                               │
+│  JOIN categories ON...                                │
+│  JOIN suppliers ON...                                 │
+└────────────────────┬──────────────────────────────────┘
+                     │
+                     ▼ (return data)
+┌───────────────────────────────────────────────────────┐
+│                   CONTROLLER                          │
+│  return view('products.index', compact('products'))   │
+└────────────────────┬──────────────────────────────────┘
+                     │
+                     ▼
+┌───────────────────────────────────────────────────────┐
+│                   VIEW (Blade)                        │
+│  products/index.blade.php                             │
+│  - Render HTML                                        │
+│  - Display data                                       │
+└────────────────────┬──────────────────────────────────┘
+                     │
+                     ▼
+┌───────────────────────────────────────────────────────┐
+│                   HTTP RESPONSE                       │
+│  HTML Page to Browser                                 │
+└───────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔄 Detailed System Flows
 
 ### 1. Authentication Flow
 
 ```
-┌─────────────┐
-│   Browser   │
-└──────┬──────┘
-       │
-       ▼
+┌──────────┐
+│  User    │
+└────┬─────┘
+     │
+     │ 1. Navigate to /login
+     ▼
 ┌─────────────────┐
 │  Login Page     │
-│  /login         │
-└──────┬──────────┘
-       │ POST credentials
-       ▼
-┌─────────────────────┐
-│ LoginController     │
-│ - Validate          │
-│ - Authenticate      │
-│ - Create Session    │
-└──────┬──────────────┘
-       │
-       ▼
-┌─────────────────┐
-│   Dashboard     │
-│   /dashboard    │
-└─────────────────┘
+│  (Blade View)   │
+└────┬────────────┘
+     │
+     │ 2. Submit credentials
+     │    POST /login
+     ▼
+┌──────────────────────────┐
+│  LoginController@login   │
+│  1. Validate input       │
+│  2. Attempt auth         │
+│  3. Create session       │
+└────┬─────────────────────┘
+     │
+     ├─ Success
+     │  │
+     │  ▼
+     │ ┌──────────────────┐
+     │ │  Redirect to     │
+     │ │  /dashboard      │
+     │ └──────────────────┘
+     │
+     └─ Failed
+        │
+        ▼
+       ┌──────────────────┐
+       │  Back to /login  │
+       │  with errors     │
+       └──────────────────┘
 ```
 
-### 2. Product Management Flow
-
-```
-User Action → Route → Controller → Model → Database
-                ↓         ↓         ↓
-              View ←── Response ←──┘
-
-Contoh: Create Product
-1. User mengklik "Add Product"
-2. Route: GET /products/create
-3. ProductController@create
-4. Load Categories & Suppliers dari database
-5. Return view products.form
-6. User mengisi form & submit
-7. Route: POST /products
-8. ProductController@store
-9. Validate input
-10. Product::create() → Insert ke database
-11. Redirect ke /products dengan success message
-```
-
-### 3. Data Flow Diagram
-
-```
-┌─────────────────────────────────────────────────┐
-│                   USER                          │
-└────────┬────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────┐
-│              ROUTES (web.php)                   │
-│  - /products, /categories, /suppliers, etc.     │
-└────────┬────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────┐
-│              CONTROLLERS                        │
-│  - ProductController                            │
-│  - CategoryController                           │
-│  - SupplierController                           │
-│  - WarehouseController                          │
-│  - CustomerController                           │
-└────────┬────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────┐
-│              MODELS (Eloquent)                  │
-│  - Product                                      │
-│  - Category                                     │
-│  - Supplier                                     │
-│  - Warehouse                                    │
-│  - Customer                                     │
-└────────┬────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────┐
-│              DATABASE (MySQL)                   │
-│  - products, categories, suppliers, etc.        │
-└─────────────────────────────────────────────────┘
-```
-
----
-
-## 📁 Struktur Folder Aplikasi
-
-```
-sistem-gudang6/
-├── app/
-│   ├── Http/
-│   │   └── Controllers/
-│   │       ├── Auth/
-│   │       │   └── LoginController.php
-│   │       ├── CategoryController.php      # Manage categories
-│   │       ├── CustomerController.php      # Manage customers
-│   │       ├── DashboardController.php     # Dashboard stats
-│   │       ├── ProductController.php       # Manage products
-│   │       ├── SupplierController.php      # Manage suppliers
-│   │       └── WarehouseController.php     # Manage warehouses
-│   │
-│   └── Models/
-│       ├── User.php                        # User model
-│       ├── Category.php                    # Category model
-│       ├── Customer.php                    # Customer model
-│       ├── Product.php                     # Product model
-│       ├── Supplier.php                    # Supplier model
-│       └── Warehouse.php                   # Warehouse model
-│
-├── database/
-│   ├── migrations/                         # Database schema
-│   │   ├── 2014_10_12_000000_create_users_table.php
-│   │   ├── 2025_11_28_000001_create_categories_table.php
-│   │   ├── 2025_11_28_000002_create_suppliers_table.php
-│   │   ├── 2025_11_28_000003_create_customers_table.php
-│   │   ├── 2025_11_28_000004_create_products_table.php
-│   │   └── 2026_01_09_000000_create_warehouses_table.php
-│   │
-│   └── seeders/                            # Sample data
-│       ├── DatabaseSeeder.php
-│       ├── UserSeeder.php
-│       ├── CategorySeeder.php
-│       ├── SupplierSeeder.php
-│       ├── CustomerSeeder.php
-│       ├── WarehouseSeeder.php
-│       └── ProductSeeder.php
-│
-├── resources/
-│   └── views/
-│       ├── layouts/
-│       │   └── app.blade.php               # Main layout
-│       ├── auth/
-│       │   └── login.blade.php             # Login page
-│       ├── dashboard.blade.php             # Dashboard
-│       ├── categories/
-│       │   ├── index.blade.php             # List categories
-│       │   └── form.blade.php              # Create/Edit form
-│       ├── customers/
-│       │   ├── index.blade.php             # List customers
-│       │   ├── form.blade.php              # Create/Edit form
-│       │   └── show.blade.php              # Customer detail
-│       ├── products/
-│       │   ├── index.blade.php             # List products
-│       │   └── form.blade.php              # Create/Edit form
-│       ├── suppliers/
-│       │   ├── index.blade.php             # List suppliers
-│       │   ├── form.blade.php              # Create/Edit form
-│       │   └── show.blade.php              # Supplier detail
-│       └── warehouses/
-│           ├── index.blade.php             # List warehouses
-│           ├── create.blade.php            # Create form
-│           ├── edit.blade.php              # Edit form
-│           └── show.blade.php              # Warehouse detail
-│
-└── routes/
-    └── web.php                             # Web routes
-```
-
----
-
-## 🎨 Arsitektur MVC
-
-Aplikasi ini menggunakan arsitektur **MVC (Model-View-Controller)** dari Laravel:
-
-### Model (Data Layer)
-- **Eloquent ORM** untuk interaksi database
-- Mendefinisikan relationships antar tabel
-- Data validation dan business logic
-
-### View (Presentation Layer)
-- **Blade templates** untuk rendering HTML
-- Reusable components dan layouts
-- Dynamic data binding
-
-### Controller (Logic Layer)
-- Handle HTTP requests
-- Koordinasi antara Model dan View
-- Business logic dan validation
-- Response handling
-
-### Flow Request-Response
-
-```
-HTTP Request
-    ↓
-Router (web.php)
-    ↓
-Middleware (auth, etc.)
-    ↓
-Controller
-    ↓
-Model (Database)
-    ↓
-Controller
-    ↓
-View (Blade)
-    ↓
-HTTP Response
-```
-
----
-
-## 🔐 Authentication & Authorization
-
-### Login System
+**Implementation Code:**
 
 ```php
-// Route
-Route::get('/login', [LoginController::class, 'showLoginForm']);
+// routes/web.php
+Route::get('/login', [LoginController::class, 'showLoginForm'])
+    ->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 
-// Authentication Check
+// LoginController.php
+public function login(Request $request)
+{
+    $credentials = $request->validate([
+        'email' => 'required|email',
+        'password' => 'required'
+    ]);
+    
+    if (Auth::attempt($credentials, $request->filled('remember'))) {
+        $request->session()->regenerate();
+        return redirect()->intended('dashboard');
+    }
+    
+    return back()->withErrors([
+        'email' => 'The provided credentials do not match our records.',
+    ]);
+}
+```
+
+---
+
+### 2. Product CRUD Flow
+
+#### A. Create Product Flow
+
+```
+User Action: Click "Add Product"
+     │
+     ▼
+Route: GET /products/create
+     │
+     ▼
+┌────────────────────────────────┐
+│ ProductController@create()     │
+│ 1. Create empty Product model  │
+│ 2. Load Categories from DB     │
+│ 3. Load Suppliers from DB      │
+└────────┬───────────────────────┘
+         │
+         ▼
+┌────────────────────────────────┐
+│ Return view('products.form')   │
+│ with: $product, $categories,   │
+│       $suppliers               │
+└────────┬───────────────────────┘
+         │
+         ▼
+┌────────────────────────────────┐
+│ User fills form & clicks Save  │
+│ POST /products                 │
+└────────┬───────────────────────┘
+         │
+         ▼
+┌────────────────────────────────────┐
+│ ProductController@store()          │
+│ 1. Validate input data             │
+│ 2. Product::create($validated)     │
+│ 3. Insert to database             │
+│ 4. Redirect with success message  │
+└────────┬───────────────────────────┘
+         │
+         ▼
+┌────────────────────────────────┐
+│ Redirect to /products          │
+│ Show success notification      │
+└────────────────────────────────┘
+```
+
+**Implementation Code:**
+
+```php
+// routes/web.php
+Route::resource('products', ProductController::class);
+
+// ProductController.php
+public function create()
+{
+    $product = new Product();
+    $categories = Category::where('status', 'active')->get();
+    $suppliers = Supplier::where('status', 'active')->get();
+    
+    return view('products.form', compact('product', 'categories', 'suppliers'));
+}
+
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'sku' => 'required|string|max:255|unique:products,sku',
+        'description' => 'nullable|string',
+        'category_id' => 'nullable|exists:categories,id',
+        'supplier_id' => 'nullable|exists:suppliers,id',
+        'price' => 'required|numeric|min:0',
+        'cost' => 'nullable|numeric|min:0',
+        'min_stock' => 'nullable|integer|min:0',
+        'max_stock' => 'nullable|integer|min:0',
+        'reorder_point' => 'nullable|integer|min:0',
+        'unit' => 'required|string|max:50',
+        'track_batch' => 'boolean',
+        'track_expiry' => 'boolean',
+        'barcode' => 'nullable|string|max:255',
+        'status' => 'required|in:active,inactive',
+    ]);
+    
+    Product::create($validated);
+    
+    return redirect()->route('products.index')
+        ->with('success', 'Product created successfully');
+}
+```
+
+#### B. Read/List Products Flow
+
+```
+User Action: Click "Products" menu
+     │
+     ▼
+Route: GET /products
+     │
+     ▼
+┌──────────────────────────────────────┐
+│ ProductController@index()            │
+│ 1. Build query with relationships    │
+│ 2. Apply search filter (if any)      │
+│ 3. Apply category filter (if any)    │
+│ 4. Apply supplier filter (if any)    │
+│ 5. Paginate results (15 per page)    │
+└────────┬─────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────┐
+│ Eloquent Query Execution             │
+│ Product::with(['category','supplier'])│
+│   ->where('name', 'like', "%search%")│
+│   ->latest()                         │
+│   ->paginate(15)                     │
+└────────┬─────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────┐
+│ Database Query (MySQL)               │
+│ SELECT products.*, categories.name,  │
+│        suppliers.name                │
+│ FROM products                        │
+│ LEFT JOIN categories ON...          │
+│ LEFT JOIN suppliers ON...            │
+│ WHERE products.name LIKE '%..%'      │
+│ ORDER BY created_at DESC             │
+│ LIMIT 15 OFFSET 0                    │
+└────────┬─────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────┐
+│ Return view('products.index')        │
+│ with: $products (paginated)          │
+│       $categories (for filter)       │
+│       $suppliers (for filter)        │
+└────────┬─────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────┐
+│ Blade Template renders table         │
+│ - Loop through $products             │
+│ - Display pagination links           │
+│ - Show action buttons (edit/delete)  │
+└──────────────────────────────────────┘
+```
+
+**Implementation Code:**
+
+```php
+// ProductController.php
+public function index(Request $request)
+{
+    $query = Product::with(['category', 'supplier']);
+    
+    // Search filter
+    if ($search = $request->get('search')) {
+        $query->where(function($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('sku', 'like', "%{$search}%")
+              ->orWhere('barcode', 'like', "%{$search}%");
+        });
+    }
+    
+    // Category filter
+    if ($request->filled('category')) {
+        $query->where('category_id', $request->category);
+    }
+    
+    // Supplier filter
+    if ($request->filled('supplier')) {
+        $query->where('supplier_id', $request->supplier);
+    }
+    
+    // Status filter
+    if ($request->filled('status')) {
+        $query->where('status', $request->status);
+    }
+    
+    $products = $query->latest()->paginate(15);
+    $categories = Category::where('status', 'active')->get();
+    $suppliers = Supplier::where('status', 'active')->get();
+    
+    return view('products.index', compact('products', 'categories', 'suppliers'));
+}
+```
+
+#### C. Update Product Flow
+
+```
+User Action: Click Edit icon
+     │
+     ▼
+Route: GET /products/{id}/edit
+     │
+     ▼
+┌────────────────────────────────┐
+│ ProductController@edit($id)    │
+│ 1. Find Product by ID          │
+│ 2. Load Categories             │
+│ 3. Load Suppliers              │
+└────────┬───────────────────────┘
+         │
+         ▼
+┌────────────────────────────────┐
+│ Return view('products.form')   │
+│ with: $product (existing data) │
+│       $categories, $suppliers  │
+└────────┬───────────────────────┘
+         │
+         ▼
+┌────────────────────────────────┐
+│ User edits form & clicks Update│
+│ PUT /products/{id}             │
+└────────┬───────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────┐
+│ ProductController@update($id)        │
+│ 1. Validate input data               │
+│ 2. Find Product by ID                │
+│ 3. $product->update($validated)      │
+│ 4. Update in database               │
+│ 5. Redirect with success message    │
+└────────┬─────────────────────────────┘
+         │
+         ▼
+┌────────────────────────────────┐
+│ Redirect to /products          │
+│ Show success notification      │
+└────────────────────────────────┘
+```
+
+**Implementation Code:**
+
+```php
+// ProductController.php
+public function edit(Product $product)
+{
+    $categories = Category::where('status', 'active')->get();
+    $suppliers = Supplier::where('status', 'active')->get();
+    
+    return view('products.form', compact('product', 'categories', 'suppliers'));
+}
+
+public function update(Request $request, Product $product)
+{
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'sku' => 'required|string|max:255|unique:products,sku,' . $product->id,
+        // ... validation rules sama seperti store
+    ]);
+    
+    $product->update($validated);
+    
+    return redirect()->route('products.index')
+        ->with('success', 'Product updated successfully');
+}
+```
+
+#### D. Delete Product Flow
+
+```
+User Action: Click Delete icon
+     │
+     ▼
+JavaScript: Show confirmation dialog
+     │
+     ├─ User cancels → No action
+     │
+     └─ User confirms
+        │
+        ▼
+   Submit DELETE form
+   DELETE /products/{id}
+        │
+        ▼
+┌────────────────────────────────┐
+│ ProductController@destroy($id) │
+│ 1. Find Product by ID          │
+│ 2. $product->delete()          │
+│ 3. Remove from database        │
+└────────┬───────────────────────┘
+         │
+         ▼
+┌────────────────────────────────┐
+│ Redirect to /products          │
+│ Show success notification      │
+└────────────────────────────────┘
+```
+
+**Implementation Code:**
+
+```php
+// ProductController.php
+public function destroy(Product $product)
+{
+    $product->delete();
+    
+    return redirect()->route('products.index')
+        ->with('success', 'Product deleted successfully');
+}
+```
+
+```javascript
+// Blade template
+<button onclick="confirmAction('Are you sure?', () => 
+    document.getElementById('delete-form-{{ $product->id }}').submit()
+)" class="btn btn-sm btn-ghost text-danger">
+    <i class="fas fa-trash"></i>
+</button>
+
+<form id="delete-form-{{ $product->id }}" 
+      action="{{ route('products.destroy', $product->id) }}" 
+      method="POST" style="display: none;">
+    @csrf
+    @method('DELETE')
+</form>
+```
+
+---
+
+### 3. Search & Filter Flow
+
+```
+User types in search box
+     │
+     ▼
+User clicks "Search" or presses Enter
+     │
+     ▼
+Form submits: GET /products?search=laptop
+     │
+     ▼
+┌────────────────────────────────────┐
+│ ProductController@index()          │
+│ 1. Get 'search' from request       │
+│ 2. Build WHERE clause              │
+│    WHERE name LIKE '%laptop%'      │
+│    OR sku LIKE '%laptop%'          │
+│    OR barcode LIKE '%laptop%'      │
+└────────┬───────────────────────────┘
+         │
+         ▼
+┌────────────────────────────────────┐
+│ Execute query & return results     │
+│ Only products matching search      │
+└────────────────────────────────────┘
+```
+
+**Implementation Code:**
+
+```php
+// Blade template - Search form
+<form action="{{ route('products.index') }}" method="GET">
+    <input type="text" 
+           name="search" 
+           value="{{ request('search') }}"
+           placeholder="Search...">
+    <button type="submit">Search</button>
+    <a href="{{ route('products.index') }}">Clear</a>
+</form>
+
+// Controller - Search logic
+if ($search = $request->get('search')) {
+    $query->where(function($q) use ($search) {
+        $q->where('name', 'like', "%{$search}%")
+          ->orWhere('sku', 'like', "%{$search}%")
+          ->orWhere('barcode', 'like', "%{$search}%");
+    });
+}
+```
+
+---
+
+## 📋 Controller Implementation Details
+
+### CategoryController
+
+```php
+class CategoryController extends Controller
+{
+    // LIST: Show all categories with pagination
+    public function index(Request $request)
+    {
+        $query = Category::withCount('products');
+        
+        if ($search = $request->get('search')) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+        
+        $categories = $query->latest()->paginate(15);
+        return view('categories.index', compact('categories'));
+    }
+    
+    // CREATE: Show form for new category
+    public function create()
+    {
+        $category = new Category();
+        return view('categories.form', compact('category'));
+    }
+    
+    // STORE: Save new category to database
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'status' => 'required|in:active,inactive',
+        ]);
+        
+        Category::create($validated);
+        
+        return redirect()->route('categories.index')
+            ->with('success', 'Category created successfully');
+    }
+    
+    // EDIT: Show form to edit existing category
+    public function edit(Category $category)
+    {
+        return view('categories.form', compact('category'));
+    }
+    
+    // UPDATE: Save changes to database
+    public function update(Request $request, Category $category)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'status' => 'required|in:active,inactive',
+        ]);
+        
+        $category->update($validated);
+        
+        return redirect()->route('categories.index')
+            ->with('success', 'Category updated successfully');
+    }
+    
+    // DELETE: Remove category from database
+    public function destroy(Category $category)
+    {
+        $category->delete();
+        
+        return redirect()->route('categories.index')
+            ->with('success', 'Category deleted successfully');
+    }
+}
+```
+
+**Key Features:**
+- **Route Model Binding**: Laravel automatically finds Category by ID
+- **withCount('products')**: Eager load product count for each category
+- **Validation**: Server-side validation untuk setiap input
+- **Flash Messages**: Success/error messages via session
+
+---
+
+## 🎨 View/Blade Templates Implementation
+
+### Blade Layout Structure
+
+```
+layouts/app.blade.php (Master Layout)
+    ├── Header
+    │   ├── Logo
+    │   ├── Navigation Menu
+    │   └── User Dropdown
+    ├── Sidebar
+    │   ├── Dashboard
+    │   ├── Products
+    │   ├── Categories
+    │   ├── Suppliers
+    │   ├── Warehouses
+    │   └── Customers
+    ├── Main Content (@yield('content'))
+    └── Footer
+```
+
+**Example Blade Template:**
+
+```blade
+{{-- products/index.blade.php --}}
+@extends('layouts.app')
+
+@section('title', 'Products')
+
+@section('content')
+<!-- Breadcrumb -->
+<nav class="breadcrumb">
+    <div class="breadcrumb-item">
+        <a href="{{ route('dashboard') }}">Dashboard</a>
+    </div>
+    <span>/</span>
+    <div class="breadcrumb-item active">Products</div>
+</nav>
+
+<!-- Page Header -->
+<div class="page-header">
+    <h1>Products</h1>
+    <a href="{{ route('products.create') }}" class="btn btn-primary">
+        Add Product
+    </a>
+</div>
+
+<!-- Search & Filters -->
+<div class="card">
+    <form method="GET">
+        <input type="text" name="search" value="{{ request('search') }}">
+        <button type="submit">Search</button>
+    </form>
+</div>
+
+<!-- Products Table -->
+<div class="card">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>SKU</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($products as $product)
+            <tr>
+                <td>{{ $product->name }}</td>
+                <td>{{ $product->sku }}</td>
+                <td>{{ $product->category->name ?? '-' }}</td>
+                <td>Rp {{ number_format($product->price, 0, ',', '.') }}</td>
+                <td>
+                    <a href="{{ route('products.edit', $product) }}">Edit</a>
+                    <form method="POST" action="{{ route('products.destroy', $product) }}">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            @empty
+            <tr>
+                <td colspan="5">No products found</td>
+            </tr>
+            @endforelse
+        </tbody>
+    </table>
+    
+    <!-- Pagination -->
+    {{ $products->links() }}
+</div>
+@endsection
+```
+
+---
+
+## 🔐 Security Implementation
+
+### 1. CSRF Protection
+
+Laravel automatically protects against CSRF attacks:
+
+```blade
+<form method="POST" action="{{ route('products.store') }}">
+    @csrf  {{-- Laravel generates CSRF token --}}
+    <!-- form fields -->
+</form>
+```
+
+### 2. SQL Injection Prevention
+
+Eloquent ORM menggunakan prepared statements:
+
+```php
+// SAFE - Using Eloquent
+Product::where('name', $userInput)->get();
+
+// SAFE - Using Query Builder with bindings
+DB::select('SELECT * FROM products WHERE name = ?', [$userInput]);
+
+// UNSAFE - Direct concatenation (NEVER DO THIS)
+// DB::select("SELECT * FROM products WHERE name = '$userInput'");
+```
+
+### 3. Mass Assignment Protection
+
+Model menggunakan `$fillable` untuk whitelist:
+
+```php
+class Product extends Model
+{
+    protected $fillable = ['name', 'sku', 'price'];
+    
+    // Only these fields can be mass-assigned
+    // Prevents injection of unauthorized fields
+}
+```
+
+### 4. Validation
+
+Server-side validation untuk semua input:
+
+```php
+$validated = $request->validate([
+    'email' => 'required|email|max:255',
+    'price' => 'required|numeric|min:0',
+    'sku' => 'required|unique:products,sku'
+]);
+```
+
+---
+
+## 📦 Data Seeding Implementation
+
+### Seeder Flow
+
+```
+php artisan db:seed
+     │
+     ▼
+DatabaseSeeder::run()
+     │
+     ├─► UserSeeder::run()
+     │        └─► Insert admin user
+     │
+     ├─► CategorySeeder::run()
+     │        └─► Insert 7 categories
+     │
+     ├─► SupplierSeeder::run()
+     │        └─► Insert 7 suppliers
+     │
+     ├─► CustomerSeeder::run()
+     │        └─► Insert 8 customers
+     │
+     ├─► WarehouseSeeder::run()
+     │        └─► Insert 5 warehouses
+     │
+     └─► ProductSeeder::run()
+              └─► Insert 12 products with relationships
+```
+
+**Example Seeder:**
+
+```php
+class ProductSeeder extends Seeder
+{
+    public function run(): void
+    {
+        // Get related data first
+        $elektronik = Category::where('name', 'Elektronik')->first();
+        $supplier = Supplier::where('name', 'PT Elektronik Jaya')->first();
+        
+        // Create products with relationships
+        Product::create([
+            'name' => 'Laptop ASUS ROG',
+            'sku' => 'ELK-001',
+            'description' => 'Gaming laptop',
+            'category_id' => $elektronik->id,
+            'supplier_id' => $supplier->id,
+            'price' => 15000000,
+            'cost' => 13000000,
+            'min_stock' => 5,
+            'max_stock' => 50,
+            'reorder_point' => 10,
+            'unit' => 'pcs',
+            'barcode' => '1234567890001',
+            'status' => 'active'
+        ]);
+    }
+}
+```
+
+---
+
+## 🚦 Routing Implementation
+
+### Route Structure
+
+```php
+// routes/web.php
+
+// Guest routes
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [LoginController::class, 'showLoginForm'])
+        ->name('login');
+    Route::post('/login', [LoginController::class, 'login']);
+});
+
+// Authenticated routes
 Route::middleware('auth')->group(function () {
-    // Protected routes
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
+    
+    // Resource routes (auto-generates 7 routes for CRUD)
+    Route::resource('products', ProductController::class);
+    Route::resource('categories', CategoryController::class);
+    Route::resource('suppliers', SupplierController::class);
+    Route::resource('warehouses', WarehouseController::class);
+    Route::resource('customers', CustomerController::class);
+    
+    // Logout
+    Route::post('/logout', [LoginController::class, 'logout'])
+        ->name('logout');
 });
 ```
 
-### User Roles (Future Implementation)
-- **Admin** - Full access
-- **Manager** - Manage inventory
-- **Staff** - View only
+**Resource Route auto-generates:**
+
+| Verb | URI | Action | Route Name |
+|------|-----|--------|------------|
+| GET | /products | index | products.index |
+| GET | /products/create | create | products.create |
+| POST | /products | store | products.store |
+| GET | /products/{id} | show | products.show |
+| GET | /products/{id}/edit | edit | products.edit |
+| PUT/PATCH | /products/{id} | update | products.update |
+| DELETE | /products/{id} | destroy | products.destroy |
 
 ---
 
-## 🚀 API Endpoints
+## 🎯 Best Practices Implemented
 
-### Products API
+### 1. **DRY (Don't Repeat Yourself)**
+- Reusable Blade components
+- Shared layouts
+- Helper functions
 
-| Method | Endpoint | Controller | Description |
-|--------|----------|------------|-------------|
-| GET | /products | index() | List all products |
-| GET | /products/create | create() | Show create form |
-| POST | /products | store() | Save new product |
-| GET | /products/{id} | show() | Show product detail |
-| GET | /products/{id}/edit | edit() | Show edit form |
-| PUT | /products/{id} | update() | Update product |
-| DELETE | /products/{id} | destroy() | Delete product |
+### 2. **Single Responsibility**
+- Controllers hanya handle HTTP requests
+- Models hanya untuk data logic
+- Views hanya untuk presentation
 
-### Categories API
+### 3. **Naming Conventions**
+- Controllers: PascalCase + "Controller" suffix
+- Models: Singular PascalCase
+- Tables: Plural snake_case
+- Routes: kebab-case
 
-| Method | Endpoint | Controller | Description |
-|--------|----------|------------|-------------|
-| GET | /categories | index() | List all categories |
-| GET | /categories/create | create() | Show create form |
-| POST | /categories | store() | Save new category |
-| GET | /categories/{id}/edit | edit() | Show edit form |
-| PUT | /categories/{id} | update() | Update category |
-| DELETE | /categories/{id} | destroy() | Delete category |
-
-### Suppliers API
-
-| Method | Endpoint | Controller | Description |
-|--------|----------|------------|-------------|
-| GET | /suppliers | index() | List all suppliers |
-| GET | /suppliers/create | create() | Show create form |
-| POST | /suppliers | store() | Save new supplier |
-| GET | /suppliers/{id} | show() | Show supplier detail |
-| GET | /suppliers/{id}/edit | edit() | Show edit form |
-| PUT | /suppliers/{id} | update() | Update supplier |
-| DELETE | /suppliers/{id} | destroy() | Delete supplier |
-
-### Warehouses API
-
-| Method | Endpoint | Controller | Description |
-|--------|----------|------------|-------------|
-| GET | /warehouses | index() | List all warehouses |
-| GET | /warehouses/create | create() | Show create form |
-| POST | /warehouses | store() | Save new warehouse |
-| GET | /warehouses/{id} | show() | Show warehouse detail |
-| GET | /warehouses/{id}/edit | edit() | Show edit form |
-| PUT | /warehouses/{id} | update() | Update warehouse |
-| DELETE | /warehouses/{id} | destroy() | Delete warehouse |
-
-### Customers API
-
-| Method | Endpoint | Controller | Description |
-|--------|----------|------------|-------------|
-| GET | /customers | index() | List all customers |
-| GET | /customers/create | create() | Show create form |
-| POST | /customers | store() | Save new customer |
-| GET | /customers/{id} | show() | Show customer detail |
-| GET | /customers/{id}/edit | edit() | Show edit form |
-| PUT | /customers/{id} | update() | Update customer |
-| DELETE | /customers/{id} | destroy() | Delete customer |
-
----
-
-## 💻 Cara Instalasi
-
-### Prerequisites
-- PHP 8.1 atau lebih tinggi
-- Composer
-- MySQL/MariaDB
-- Node.js & NPM
-
-### Step-by-Step Installation
-
-```bash
-# 1. Clone repository
-git clone <repository-url>
-cd sistem-gudang6
-
-# 2. Install dependencies
-composer install
-npm install
-
-# 3. Setup environment
-cp .env.example .env
-php artisan key:generate
-
-# 4. Configure database di .env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=sistem_gudang
-DB_USERNAME=root
-DB_PASSWORD=
-
-# 5. Run migrations & seeders
-php artisan migrate:fresh --seed
-
-# 6. Build assets
-npm run dev
-
-# 7. Start server
-php artisan serve
+### 4. **Error Handling**
+```php
+try {
+    Product::create($validated);
+    return redirect()->back()->with('success', 'Created!');
+} catch (\Exception $e) {
+    \Log::error($e->getMessage());
+    return redirect()->back()->with('error', 'Failed to create product');
+}
 ```
 
-### Default Login Credentials
+### 5. **Eager Loading**
+```php
+// Good: Prevents N+1 query problem
+$products = Product::with(['category', 'supplier'])->get();
 
-Setelah menjalankan seeder:
-```
-Email: admin@gudang.com
-Password: password
+// Bad: Causes N+1 queries
+$products = Product::all();
+foreach ($products as $product) {
+    echo $product->category->name; // Triggers separate query each time
+}
 ```
 
 ---
 
-## 📖 User Guide
+## 📈 Performance Optimization
 
-### 1. Login ke Sistem
-1. Akses `http://localhost:8000/login`
-2. Masukkan email dan password
-3. Klik "Login"
+### 1. Database Indexing
 
-### 2. Mengelola Produk
-
-#### Tambah Produk Baru
-1. Klik menu **Products** di sidebar
-2. Klik tombol **"Add Product"**
-3. Isi form:
-   - Name (required)
-   - SKU (required, unique)
-   - Category (pilih dari dropdown)
-   - Supplier (pilih dari dropdown)
-   - Price (harga jual)
-   - Cost (harga beli)
-   - Stock settings (min, max, reorder point)
-   - Unit (satuan: pcs, box, dll)
-   - Barcode
-4. Klik **"Save Product"**
-
-#### Edit Produk
-1. Di halaman Products, klik icon **Edit** (✏️)
-2. Update informasi yang diperlukan
-3. Klik **"Update Product"**
-
-#### Hapus Produk
-1. Di halaman Products, klik icon **Delete** (🗑️)
-2. Confirm penghapusan
-3. Produk akan dihapus
-
-### 3. Mengelola Kategori
-
-#### Tambah Kategori
-1. Klik menu **Categories**
-2. Klik **"Add Category"**
-3. Isi:
-   - Name (required)
-   - Description (optional)
-   - Status (active/inactive)
-4. Klik **"Save Category"**
-
-### 4. Mengelola Supplier
-
-#### Tambah Supplier
-1. Klik menu **Suppliers**
-2. Klik **"Add Supplier"**
-3. Isi informasi supplier:
-   - Name (required)
-   - Contact Person
-   - Email
-   - Phone
-   - Address
-   - Status
-4. Klik **"Save Supplier"**
-
-### 5. Mengelola Gudang
-
-#### Tambah Warehouse
-1. Klik menu **Warehouses**
-2. Klik **"Add Warehouse"**
-3. Isi:
-   - Name (required)
-   - Code (required, unique)
-   - Location
-   - Address
-   - Phone
-   - Manager Name
-   - Capacity (m²)
-   - Status
-4. Klik **"Save Warehouse"**
-
-### 6. Search & Filter
-- Setiap halaman index memiliki search box
-- Ketik kata kunci dan klik **"Search"**
-- Klik **"Clear"** untuk reset filter
-
----
-
-## 🔮 Future Enhancements
-
-### Planned Features
-
-1. **Stock Management**
-   - Stock In/Out transactions
-   - Stock transfer between warehouses
-   - Stock opname/adjustment
-   - Real-time stock tracking
-
-2. **Purchase Order**
-   - Create PO to suppliers
-   - PO approval workflow
-   - Receive goods
-
-3. **Sales Order**
-   - Customer orders
-   - Order fulfillment
-   - Invoice generation
-
-4. **Reporting**
-   - Stock report by warehouse
-   - Sales report
-   - Purchase report
-   - Low stock alerts
-   - Export to Excel/PDF
-
-5. **Additional Features**
-   - Multi-user with roles
-   - Activity logs
-   - Notification system
-   - Barcode scanning
-   - Product images upload
-   - API for mobile app
-
----
-
-## 🐛 Troubleshooting
-
-### Database Connection Error
-```bash
-# Check .env configuration
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_DATABASE=sistem_gudang
-
-# Test connection
-php artisan migrate:status
+```sql
+-- Indexes untuk search performance
+INDEX idx_products_name ON products(name)
+INDEX idx_products_sku ON products(sku)
+INDEX idx_products_status ON products(status)
+INDEX idx_categories_name ON categories(name)
 ```
 
-### Assets Not Loading
-```bash
-# Rebuild assets
-npm run build
+### 2. Pagination
 
-# Or run dev server
-npm run dev
+```php
+// Load only 15 items per page, not all data
+$products = Product::paginate(15);
 ```
 
-### Permission Error
-```bash
-# Linux/Mac
-chmod -R 775 storage bootstrap/cache
+### 3. Query Optimization
 
-# Windows - run as administrator
+```php
+// Select only needed columns
+Product::select('id', 'name', 'sku', 'price')->get();
+
+// Use chunk for large datasets
+Product::chunk(100, function ($products) {
+    foreach ($products as $product) {
+        // Process
+    }
+});
 ```
 
 ---
 
-## 📞 Support & Contact
+## 🧪 Testing Strategy
 
-Untuk pertanyaan atau dukungan teknis, silakan hubungi tim development.
+### Unit Tests Example
+
+```php
+class ProductTest extends TestCase
+{
+    public function test_can_create_product()
+    {
+        $product = Product::factory()->create([
+            'name' => 'Test Product',
+            'sku' => 'TEST-001'
+        ]);
+        
+        $this->assertDatabaseHas('products', [
+            'name' => 'Test Product',
+            'sku' => 'TEST-001'
+        ]);
+    }
+    
+    public function test_product_belongs_to_category()
+    {
+        $category = Category::factory()->create();
+        $product = Product::factory()->create([
+            'category_id' => $category->id
+        ]);
+        
+        $this->assertEquals($category->id, $product->category->id);
+    }
+}
+```
 
 ---
 
-## 📄 License
+## 📞 API Documentation (Future)
 
-Laravel is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Untuk implementasi REST API di masa depan:
+
+```php
+// routes/api.php
+Route::group(['prefix' => 'api/v1'], function () {
+    Route::apiResource('products', ProductApiController::class);
+});
+
+// Response format
+{
+    "status": "success",
+    "data": {
+        "id": 1,
+        "name": "Laptop",
+        "sku": "ELK-001",
+        "price": 15000000
+    }
+}
+```
 
 ---
 
-**Dibuat dengan ❤️ menggunakan Laravel 10**
+## 🎓 Kesimpulan
+
+Sistem Manajemen Gudang ini dibangun dengan:
+- **Arsitektur MVC** yang clean dan maintainable
+- **Database normalisasi** untuk integritas data
+- **Eloquent ORM** untuk query yang aman
+- **Blade templating** untuk views yang reusable
+- **Validation** di semua layer
+- **Security** best practices
+- **Performance optimization** dengan indexing dan pagination
+
+Dokumentasi ini memberikan panduan lengkap untuk memahami implementasi teknis sistem dari database hingga presentasi layer.
